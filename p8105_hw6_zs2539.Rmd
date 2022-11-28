@@ -25,3 +25,22 @@ theme_set(theme_minimal() + theme(legend.position = "bottom"))
 ```
 
 ## Problem 2
+```{r, warning = FALSE, message=FALSE}
+
+```
+
+```{r, warning = FALSE, message=FALSE}
+
+```
+
+```{r, warning = FALSE, message=FALSE}
+
+```
+
+```{r, warning = FALSE, message=FALSE}
+
+```
+
+```{r, warning = FALSE, message=FALSE}
+
+```

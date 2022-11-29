@@ -66,19 +66,29 @@ baltimore_logistic %>%
 
 ## Running `glm` for each of the cities in the dataset; Extracting the adjusted odds ratio and CI, for solving homicides comparing male victims to female victims; 
 ```{r, warning = FALSE, message=FALSE}
-allcities_logistic = homicide_df %>%
-    glm(resolved ~ victim_age + victim_race + victim_sex, data = ., family = binomial()) 
+allcities_logistic = homicide_df %>% 
+  nest(data = -city_state) %>% 
+  mutate(
+    models = map(data, ~glm(resolved ~ victim_age + victim_race + victim_sex, data = ., family = binomial())),
+    results = map(models, broom::tidy)) %>% 
+  select(-data, -models) %>% 
+  unnest(results)
 ```
 
 ```{r, warning = FALSE, message=FALSE}
-allcities_logistic %>% 
-  broom::tidy() %>% 
-  mutate(OR = exp(estimate)) %>%
-  select(term, log_OR = estimate, OR, p.value) %>% 
+allcities_logistic %>%
+  mutate(term = fct_inorder(term),
+         OR = exp(estimate)) %>%
+    select(city_state, term, log_OR = estimate, OR, p.value) %>% 
   knitr::kable(digits = 3)
 ```
 * Keeping all other variables fixed, in XXX,XXX,XXX, homicides in which the victim is male are significantly less like to be resolved than those in which the victim is female.
 
 ```{r, warning = FALSE, message=FALSE}
-
+allcities_logistic %>% 
+  filter(str_detect(term, "victim_sex")) %>% 
+  ggplot(aes(x = city_state, y = exp(estimate))) + 
+  geom_point() + 
+  facet_wrap(~term) + 
+  theme(axis.text.x = element_text(angle = 80, hjust = 1))
 ```

@@ -25,12 +25,28 @@ theme_set(theme_minimal() + theme(legend.position = "bottom"))
 ```
 
 ## Problem 2
-```{r, warning = FALSE, message=FALSE}
 
+## Importing the dataset
+```{r, warning = FALSE, message=FALSE}
+homicide_raw <- read_csv("https://raw.githubusercontent.com/washingtonpost/data-homicides/master/homicide-data.csv")
 ```
 
+#### Creating a `city_state` variable, binary variable `resolution` indicating case disposition, omitting cities excluded victim race and Tulsa, AL with data entry mistake. Also, limiting `victim_race` is white or black, making `victim_age` numeric.
 ```{r, warning = FALSE, message=FALSE}
-
+homicide_df = homicide_raw %>% 
+    janitor::clean_names() %>%
+    mutate(
+        reported_date = as.Date(as.character(reported_date), format = "%Y%m%d"),
+        city_state = str_c(city, state, sep = ", "),
+        victim_age = as.numeric(victim_age),
+        resolution = case_when(
+            disposition == "Closed without arrest" ~ "unsolved",
+            disposition == "Open/No arrest" ~ "unsolved",
+            disposition == "Closed by arrest" ~ "solved",
+    )) %>%
+    relocate(city_state) %>%
+    filter(city_state != c("Tulsa, AL","Dallas, TX","Phoenix, AZ","Kansas City, MO"),
+           victim_race == c("White","Black"))
 ```
 
 ```{r, warning = FALSE, message=FALSE}

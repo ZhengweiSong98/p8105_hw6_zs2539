@@ -67,6 +67,7 @@ baltimore_logistic %>%
   select(term, log_OR = estimate, OR,ci_lower,ci_upper, p.value) %>% 
   knitr::kable(digits = 3)
 ```
+
 * Keeping all other variables fixed, in Baltimore, MD, homicides in which the victim is male are significantly less like to be resolved than those in which the victim is female.
 
 ## Running `glm` for each of the cities in the dataset; Extracting the adjusted odds ratio and CI, for solving homicides comparing male victims to female victims; 
@@ -89,6 +90,7 @@ allcities_logistic %>%
     select(city_state, term, log_OR = estimate, OR, ci_lower,ci_upper,p.value) %>% 
   knitr::kable(digits = 3)
 ```
+
 * Keeping all other variables fixed, in XXX,XXX,XXX, homicides in which the victim is male are significantly less like to be resolved than those in which the victim is female.
 
 ```{r, warning = FALSE, message=FALSE}
@@ -108,22 +110,26 @@ birthweight_raw = read_csv("./data/birthweight.csv")
 
 birthweight_df = birthweight_raw %>% 
     janitor::clean_names() %>%
-    mutate(across(.cols = c(babysex, frace, malform, mrace), as.factor)) %>%
-  mutate(babysex = ifelse(babysex == "1", "male","female"),
-         malform = ifelse(malform == "0", "absent","present"),
-         frace = recode(frace, "1" = "White", "2" = "Black", "3" = "Asian", 
-                        "4" = "Puerto Rican", "8" = "Other", "9" = "Unknown"),
-         mrace = recode(mrace, "1" = "White", "2" = "Black", 
-                        "3" = "Asian", "4" = "Puerto Rican", "8" = "Other")
+    mutate(
+        across(.cols = c(babysex, frace, malform, mrace), as.factor)
+        ) %>%
+  mutate(
+      babysex = ifelse(babysex == "1", "male","female"),
+      malform = ifelse(malform == "0", "absent","present"),
+      frace = recode(frace, "1" = "White", "2" = "Black", "3" = "Asian", "4" = "Puerto Rican", "8" = "Other", "9" = "Unknown"),
+      mrace = recode(mrace, "1" = "White", "2" = "Black", "3" = "Asian", "4" = "Puerto Rican", "8" = "Other")
          )
 ```
+
 * `babysex`,`frace`,`malform` and `mrace` were converted from numeric to factor, because they are categorical variables.
 
-* These categorical data are `recode` to make it more intuitive.
+* These categorical data were applied `recode` to make it more intuitive.
 
+#### Missing data check
 ```{r, warning = FALSE, message=FALSE}
-skimr::skim(birthweight_df)
+skimr::skim(birthweight_df)[c(2,4)] %>% t() %>% knitr::kable()
 ```
+
 * There is no missing data. The cleaned dataset contains `r nrow(birthweight_df)` observations and `r ncol(birthweight_df)` variables: `r names(birthweight_df)`
 
 #### The Correlations with Birth Weight
@@ -158,49 +164,64 @@ birthweight_raw %>%
     fill = "Correlation"
   )
 ```
-* Based on t-test, the variables with p-value less than 0.01 are to be selected as potential predictors. To simple, the continuous are to be selected.
 
-#### Scatter plots of Birth Weight vs. potential predictors
+* Based on t-test, the variables with p-value less than 0.01 are to be selected as potential predictors. To be simple, the continuous are to be selected.
+
+#### Based on the correlation plot, and intuitively, `babysex`, `bhead`, `gaweeks`, `blength`, `wtgain`, `ppwt` are to be included as potential predictors; Hence we can build models on every subsets of these variables and choose the optimal one with the lowest BIC.
 ```{r, warning = FALSE, message=FALSE}
-continuous_variables =  
-  birthweight_df %>%
-  select_if(is.numeric) %>%
-  select(-bwt, -ppbmi, -ppwt, -pnumsga, -parity, -pnumlbw) %>%
-  colnames() %>% 
-  as.list()
+# find all possible subsets of variables
+subsets = unlist(lapply(1:6, combn, x = c("babysex", "bhead", "blength", "wtgain", "ppwt","gaweeks"),  simplify = F), recursive = F)
 
-for (i in continuous_variables) {
-  plot =
-  ggplot(birthweight_df, aes_string(i,  "bwt")) + 
-  geom_point() +
-  geom_smooth(method = lm, se = FALSE) +
-  labs(title = "Scatterplot", y = "Birth Weight") +
-  theme(plot.title = element_text(hjust = 0.5, face = "bold"))
+calc_BIC = function(variables){
   
-  print(plot)
+    formula = as.formula(paste("bwt", paste(variables, collapse = " + "), sep = "~"))
+  
+    model = lm(formula, birthweight_df)
+  return(broom::glance(model) %>% pull("BIC"))
 }
-```
-* `bhead`, `blength`, `fincome`,`gaweeks`, `smoken` showed a relatively significant linear relationship with birth weight.
 
-#### Collinearity Check
+# calculate BIC value of every model
+BICs = map(subsets, calc_BIC) %>% as_vector()
+
+# choose model with the lowest BIC
+index = which(BICs == min(BICs))[[1]]
+variables = subsets[[index]]
+formula = as.formula(paste("bwt", paste(variables, collapse = " + "), sep = "~"))
+fit_optimal = lm(formula, birthweight_df)
+
+birthweight_df %>% 
+  add_residuals(fit_optimal) %>% 
+  add_predictions(fit_optimal) %>% 
+  ggplot(aes(x = pred, y =resid)) +
+  geom_point() +
+  labs(
+    x = "Fitted values",
+    y = "Residuals",
+    title = "Model residuals vs fitted values"
+  )
+```
+
+#### Collinearity Check for continuous variables
 ```{r, warning = FALSE, message=FALSE}
 selected_variables =
   birthweight_df %>%
-  select(bhead, blength, fincome, gaweeks, smoken, bwt)
+  select(bhead, blength, gaweeks, wtgain, ppwt, bwt)
+
 chart.Correlation(selected_variables, method = "pearson")
 ```
+
 * From the plot, among predictors, `bhead` vs `blength` or `gaweeks`, `blength` vs `gaweeks` showed a potential collinearity.
 
-#### Final selection of predictors including categorical variables
+#### Final selection of continuous predictors, and intuitively, we can also include `babysex`.
 ```{r, warning = FALSE, message=FALSE}
 selected_variables =
   birthweight_df %>%
-  select(bhead, blength, gaweeks, bwt, babysex, mrace)
+  select(bhead, blength, gaweeks, bwt, babysex, mrace, wtgain, ppwt)
 ```
 
 #### Fitting the linear model with finally selected predictors
 ```{r, warning = FALSE, message=FALSE}
-fit_final <- lm(bwt ~ bhead + blength + gaweeks + babysex + mrace + bhead:blength +
+fit_final <- lm(bwt ~ bhead + blength + gaweeks + babysex + mrace + wtgain + ppwt+ bhead:blength +
              bhead:blength:gaweeks, 
            data = selected_variables)
 summary(fit_final) %>% 
@@ -226,48 +247,41 @@ selected_variables %>%
 #### Comparison in terms of the cross-validated prediction error
 ```{r, warning = FALSE, message=FALSE}
 set.seed(2022)
-cv_dataset <-
-  selected_variables %>% 
-  crossv_mc(n = 100,test = 0.2)
+cv_dataset = selected_variables %>%
+    crossv_mc(n = 100,test = 0.2)
   
-cv_df <- 
-  cv_dataset %>%
-   mutate(
-    train = map(train, as_tibble),
-    test = map(test, as_tibble))
-cv_df <-
-  cv_df %>%
+cv_df = cv_dataset %>%
     mutate(
-    linear_mod1  = map(train, ~lm(bwt ~ bhead + blength + gaweeks + babysex + mrace 
-                                  + bhead:blength + bhead:blength:gaweeks, 
-                                  data = .x)),
-    linear_mod2  = map(train, ~lm(bwt ~ blength + gaweeks, data = .x)),
-    linear_mod3  = map(train, ~lm(bwt ~ (bhead + blength + babysex)^3, data = .x))
-    ) %>%
-   mutate(
-    rmse_my_model = map2_dbl(linear_mod1, test, ~rmse(model = .x, data = .y)),
-    rmse_given_model1 = map2_dbl(linear_mod2, test, ~rmse(model = .x, data = .y)),
-    rmse_given_model2 = map2_dbl(linear_mod3, test, ~rmse(model = .x, data = .y))
-   )
+        train = map(train, as_tibble),
+        test = map(test, as_tibble))
+
+cv_df = cv_df %>%
+    mutate(
+        linear_mod1  = map(train, ~lm(bwt ~ bhead + blength + gaweeks + babysex + mrace+ wtgain + ppwt + bhead:blength + bhead:blength:gaweeks, data = .x)),
+        linear_mod2  = map(train, ~lm(bwt ~ blength + gaweeks, data = .x)),
+        linear_mod3  = map(train, ~lm(bwt ~ bhead + blength + babysex, data = .x))) %>%
+    mutate(
+        rmse_my_model = map2_dbl(linear_mod1, test, ~rmse(model = .x, data = .y)),
+        rmse_given_model1 = map2_dbl(linear_mod2, test, ~rmse(model = .x, data = .y)),
+        rmse_given_model2 = map2_dbl(linear_mod3, test, ~rmse(model = .x, data = .y)))
 ```
 
 #### Root Mean Square Error in the three models
 ```{r, warning = FALSE, message=FALSE}
 cv_df %>% 
-  select(starts_with("rmse")) %>% 
-  pivot_longer(
+    select(starts_with("rmse")) %>% 
+    pivot_longer(
     everything(),
     names_to = "model", 
     values_to = "rmse",
     names_prefix = "rmse_") %>% 
-  mutate(model = fct_inorder(model)) %>% 
-  ggplot(aes(x = model, y = rmse)) + 
-  geom_boxplot() +
-  labs(title = 
-  "Prediction Error Distributions across Models", 
-       x = "Models", y = "Root Mean Square Error")  +
-  scale_x_discrete(
-    labels = c("My Model", "Test Model 1", "Test Model 2")) +
-  theme(plot.title = element_text(hjust = 0.5, face = "bold"))
+    mutate(model = fct_inorder(model)) %>% 
+    ggplot(aes(x = model, y = rmse)) + 
+    geom_boxplot() +
+    labs(title = "Prediction Error Distributions across Models", x = "Models", y = "Root Mean Square Error")+
+    scale_x_discrete(
+        labels = c("My Model", "Given Model 1", "Given Model 2")) +
+    theme(plot.title = element_text(hjust = 0.5, face = "bold"))
 ```
-* Based on cross-validation, my model has the relatively lowest root mean square error and therefore my model works better.
+
+* Based on cross-validation, my model has the relatively lowest root mean square error and therefore my model works better. While the first given model with predictors **length at birth** and **gestational age** has the highest cross-validated RMSE.

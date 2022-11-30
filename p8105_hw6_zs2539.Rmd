@@ -60,11 +60,11 @@ baltimore_logistic = homicide_df %>%
 #### Applying the `broom::tidy` to the above object; Obtaining the estimate and confidence interval of the adjusted odds ratio, for solving homicides comparing male victims to female victims keeping all other variables fixed.
 ```{r, warning = FALSE, message=FALSE}
 baltimore_logistic %>% 
-  broom::tidy() %>% 
+  broom::tidy(conf.int = T) %>% 
   mutate(OR = exp(estimate),
-         ci_lower = quantile(OR, 0.025),
-        ci_upper = quantile(OR, 0.975)) %>%
-  select(term, log_OR = estimate, OR,ci_lower,ci_upper, p.value) %>% 
+         CI_Lower = exp(conf.low),
+         CI_Upper = exp(conf.high)) %>%
+  select(term, log_OR = estimate, OR,CI_Lower,CI_Upper, p.value) %>% 
   knitr::kable(digits = 3)
 ```
 
@@ -76,7 +76,7 @@ allcities_logistic = homicide_df %>%
   nest(data = -city_state) %>% 
   mutate(
     models = map(data, ~glm(resolved ~ victim_age + victim_race + victim_sex, data = ., family = binomial())),
-    results = map(models, broom::tidy)) %>% 
+    results = map(models, ~broom::tidy(.x, conf.int = T))) %>% 
   select(-data, -models) %>% 
   unnest(results)
 ```
@@ -85,9 +85,10 @@ allcities_logistic = homicide_df %>%
 allcities_logistic %>%
   mutate(term = fct_inorder(term),
          OR = exp(estimate),
-         ci_lower = quantile(OR, 0.025),
-        ci_upper = quantile(OR, 0.975)) %>%
-    select(city_state, term, log_OR = estimate, OR, ci_lower,ci_upper,p.value) %>% 
+         CI_Lower = exp(conf.low),
+         CI_Upper = exp(conf.high)
+         ) %>%
+    select(city_state, term, log_OR = estimate, OR, CI_Lower, CI_Upper,p.value) %>% 
   knitr::kable(digits = 3)
 ```
 

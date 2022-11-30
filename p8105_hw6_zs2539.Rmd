@@ -158,9 +158,9 @@ birthweight_raw %>%
     fill = "Correlation"
   )
 ```
-* Based on t-test, the variables with p-value less than 0.01 are to be selected as predictors. To simple, the continuous are to be selected.
+* Based on t-test, the variables with p-value less than 0.01 are to be selected as potential predictors. To simple, the continuous are to be selected.
 
-#### Fitting the linear model
+#### Scatter plots of Birth Weight vs. potential predictors
 ```{r, warning = FALSE, message=FALSE}
 continuous_variables =  
   birthweight_df %>%
@@ -180,20 +180,25 @@ for (i in continuous_variables) {
   print(plot)
 }
 ```
+* `bhead`, `blength`, `fincome`,`gaweeks`, `smoken` showed a relatively significant linear relationship with birth weight.
 
+#### Collinearity Check
 ```{r, warning = FALSE, message=FALSE}
 selected_variables =
   birthweight_df %>%
-  select(bhead, blength, delwt, gaweeks, wtgain, bwt)
+  select(bhead, blength, fincome, gaweeks, smoken, bwt)
 chart.Correlation(selected_variables, method = "pearson")
 ```
+* From the plot, among predictors, `bhead` vs `blength` or `gaweeks`, `blength` vs `gaweeks` showed a potential collinearity.
 
+#### Final selection of predictors including categorical variables
 ```{r, warning = FALSE, message=FALSE}
 selected_variables =
   birthweight_df %>%
   select(bhead, blength, gaweeks, bwt, babysex, mrace)
 ```
 
+#### Fitting the linear model with finally selected predictors
 ```{r, warning = FALSE, message=FALSE}
 fit_final <- lm(bwt ~ bhead + blength + gaweeks + babysex + mrace + bhead:blength +
              bhead:blength:gaweeks, 
@@ -205,6 +210,7 @@ summary(fit_final) %>%
   broom::glance()
 ```
 
+#### Residual plot
 ```{r, warning = FALSE, message=FALSE}
 selected_variables %>%
   add_residuals(fit_final) %>%
@@ -217,9 +223,9 @@ selected_variables %>%
   theme(plot.title = element_text(hjust = 0.5, face = "bold"))
 ```
 
-#### Cross Validation
+#### Comparison in terms of the cross-validated prediction error
 ```{r, warning = FALSE, message=FALSE}
-set.seed(77)
+set.seed(2022)
 cv_dataset <-
   selected_variables %>% 
   crossv_mc(n = 100,test = 0.2)
@@ -245,6 +251,7 @@ cv_df <-
    )
 ```
 
+#### Root Mean Square Error in the three models
 ```{r, warning = FALSE, message=FALSE}
 cv_df %>% 
   select(starts_with("rmse")) %>% 

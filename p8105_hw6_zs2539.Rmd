@@ -9,6 +9,8 @@ library(tidyverse)
 library(p8105.datasets)
 library(viridis)
 library(rstatix)
+library(PerformanceAnalytics)
+library(modelr)
 knitr::opts_chunk$set(
 	echo = TRUE,
 	warning = FALSE,
@@ -158,14 +160,106 @@ birthweight_raw %>%
 ```
 * Based on t-test, the variables with p-value less than 0.01 are to be selected as predictors. To simple, the continuous are to be selected.
 
+#### Fitting the linear model
 ```{r, warning = FALSE, message=FALSE}
+continuous_variables =  
+  birthweight_df %>%
+  select_if(is.numeric) %>%
+  select(-bwt, -ppbmi, -ppwt, -pnumsga, -parity, -pnumlbw) %>%
+  colnames() %>% 
+  as.list()
 
+for (i in continuous_variables) {
+  plot =
+  ggplot(birthweight_df, aes_string(i,  "bwt")) + 
+  geom_point() +
+  geom_smooth(method = lm, se = FALSE) +
+  labs(title = "Scatterplot", y = "Birth Weight") +
+  theme(plot.title = element_text(hjust = 0.5, face = "bold"))
+  
+  print(plot)
+}
 ```
 
 ```{r, warning = FALSE, message=FALSE}
-
+selected_variables =
+  birthweight_df %>%
+  select(bhead, blength, delwt, gaweeks, wtgain, bwt)
+chart.Correlation(selected_variables, method = "pearson")
 ```
 
 ```{r, warning = FALSE, message=FALSE}
+selected_variables =
+  birthweight_df %>%
+  select(bhead, blength, gaweeks, bwt, babysex, mrace)
+```
 
+```{r, warning = FALSE, message=FALSE}
+fit_final <- lm(bwt ~ bhead + blength + gaweeks + babysex + mrace + bhead:blength +
+             bhead:blength:gaweeks, 
+           data = selected_variables)
+summary(fit_final) %>% 
+  broom::tidy() %>%
+  select(term, estimate, p.value)
+summary(fit_final) %>% 
+  broom::glance()
+```
+
+```{r, warning = FALSE, message=FALSE}
+selected_variables %>%
+  add_residuals(fit_final) %>%
+  add_predictions(fit_final) %>%
+  ggplot(aes(x = pred, y = resid)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = FALSE) +
+  labs(title = "Plot of the model residuals against fitted values",
+       x = "Fitted Values", y = "Residuals") +
+  theme(plot.title = element_text(hjust = 0.5, face = "bold"))
+```
+
+#### Cross Validation
+```{r, warning = FALSE, message=FALSE}
+set.seed(77)
+cv_dataset <-
+  selected_variables %>% 
+  crossv_mc(n = 100,test = 0.2)
+  
+cv_df <- 
+  cv_dataset %>%
+   mutate(
+    train = map(train, as_tibble),
+    test = map(test, as_tibble))
+cv_df <-
+  cv_df %>%
+    mutate(
+    linear_mod1  = map(train, ~lm(bwt ~ bhead + blength + gaweeks + babysex + mrace 
+                                  + bhead:blength + bhead:blength:gaweeks, 
+                                  data = .x)),
+    linear_mod2  = map(train, ~lm(bwt ~ blength + gaweeks, data = .x)),
+    linear_mod3  = map(train, ~lm(bwt ~ (bhead + blength + babysex)^3, data = .x))
+    ) %>%
+   mutate(
+    rmse_my_model = map2_dbl(linear_mod1, test, ~rmse(model = .x, data = .y)),
+    rmse_given_model1 = map2_dbl(linear_mod2, test, ~rmse(model = .x, data = .y)),
+    rmse_given_model2 = map2_dbl(linear_mod3, test, ~rmse(model = .x, data = .y))
+   )
+```
+
+```{r, warning = FALSE, message=FALSE}
+cv_df %>% 
+  select(starts_with("rmse")) %>% 
+  pivot_longer(
+    everything(),
+    names_to = "model", 
+    values_to = "rmse",
+    names_prefix = "rmse_") %>% 
+  mutate(model = fct_inorder(model)) %>% 
+  ggplot(aes(x = model, y = rmse)) + 
+  geom_boxplot() +
+  labs(title = 
+  "Prediction Error Distributions across Models", 
+       x = "Models", y = "Root Mean Square Error")  +
+  scale_x_discrete(
+    labels = c("My Model", "Test Model 1", "Test Model 2")) +
+  theme(plot.title = element_text(hjust = 0.5, face = "bold"))
 ```

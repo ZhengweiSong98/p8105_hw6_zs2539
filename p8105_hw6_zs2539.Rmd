@@ -65,7 +65,9 @@ baltimore_logistic %>%
          CI_Lower = exp(conf.low),
          CI_Upper = exp(conf.high)) %>%
   select(term, log_OR = estimate, OR,CI_Lower,CI_Upper, p.value) %>% 
-  knitr::kable(digits = 3)
+  knitr::kable(align = "lrr",
+               col.names = c("Term","Estimate","OR", "95% CI Lower", "95% CI Upper", "P-value"),
+               digits = 3)
 ```
 
 * Keeping all other variables fixed, in Baltimore, MD, homicides in which the victim is male are significantly less like to be resolved than those in which the victim is female.
@@ -82,26 +84,36 @@ allcities_logistic = homicide_df %>%
 ```
 
 ```{r, warning = FALSE, message=FALSE}
-allcities_logistic %>%
-  mutate(term = fct_inorder(term),
+allcities_or = allcities_logistic %>%
+    mutate(term = fct_inorder(term),
          OR = exp(estimate),
-         CI_Lower = exp(conf.low),
-         CI_Upper = exp(conf.high)
+         ci_lower = exp(conf.low),
+         ci_upper = exp(conf.high)
          ) %>%
-    select(city_state, term, log_OR = estimate, OR, CI_Lower, CI_Upper,p.value) %>% 
-  knitr::kable(digits = 3)
+    select(city_state, term, log_OR = estimate, OR, ci_lower, ci_upper,p.value) %>%
+    filter(term == "victim_sexMale")
+    
+    allcities_or %>% knitr::kable(align = "lrr",
+               col.names = c("City, State","Term","Estimate","OR", "95% CI Lower", "95% CI Upper", "P-value"),
+               digits = 3)
 ```
 
-* Keeping all other variables fixed, in XXX,XXX,XXX, homicides in which the victim is male are significantly less like to be resolved than those in which the victim is female.
-
+#### Creating plot that shows the estimated ORs and CIs for each city
 ```{r, warning = FALSE, message=FALSE}
-allcities_logistic %>% 
-  filter(str_detect(term, "victim_sex")) %>% 
-  ggplot(aes(x = city_state, y = exp(estimate))) + 
-  geom_point() + 
-  facet_wrap(~term) + 
-  theme(axis.text.x = element_text(angle = 80, hjust = 1))
+allcities_or %>% 
+  mutate(city_state = fct_reorder(city_state, OR)) %>% 
+  ggplot(aes(x = city_state, y = OR)) + 
+  geom_point() +
+  geom_errorbar(aes(ymin = ci_lower, ymax = ci_upper)) +
+  theme(axis.text.x = element_text(angle = 60, hjust = 1)) +
+   labs(
+    title = "Estimated ORs and CIs for solved homicides of each city compared with female victim",
+    x = "City, State",
+    y = "Estimated ORs"
+  )
 ```
+
+* Holding all other variables constant, homicide cases with male victims are generally less likely to be solved compared to homicide cases with female victims because for most cities, the OR and its CI is less than 1 compared to female victims. However, there are some cities where the CI includes 1, meaning that homicide cases with male and female victims are solved at no apparent difference.
 
 ## Problem 3
 

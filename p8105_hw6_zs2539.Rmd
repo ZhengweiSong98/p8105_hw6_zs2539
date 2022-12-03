@@ -100,8 +100,8 @@ homicide_df = homicide_raw %>%
         victim_race = fct_relevel(victim_race, "White")
     ) %>%
     relocate(city_state) %>%
-    filter(city_state != c("Tulsa, AL","Dallas, TX","Phoenix, AZ","Kansas City, MO"),
-           victim_race == c("White","Black"))
+    filter(!city_state %in% c("Dallas, TX","Phoenix, AZ","Kansas City, MO","Tulsa, AL"),
+         victim_race %in% c("White","Black"))
 ```
 
 #### Applying `glm` to fit a logistic regression with resolved vs unresolved as the outcome; victim age, sex and race as predictors. Also, saving the output of `glm` as an R object.

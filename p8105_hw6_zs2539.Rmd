@@ -114,13 +114,15 @@ baltimore_logistic = homicide_df %>%
 #### Applying the `broom::tidy` to the above object; Obtaining the estimate and confidence interval of the adjusted odds ratio, for solving homicides comparing male victims to female victims keeping all other variables fixed.
 ```{r, warning = FALSE, message=FALSE}
 baltimore_logistic %>% 
-  broom::tidy(conf.int = T) %>% 
-  mutate(OR = exp(estimate),
+  broom::tidy(conf.int = T) %>%
+    filter(term == "victim_sexMale") %>%
+    mutate(OR = exp(estimate),
          CI_Lower = exp(conf.low),
-         CI_Upper = exp(conf.high)) %>%
-  select(term, log_OR = estimate, OR,CI_Lower,CI_Upper, p.value) %>% 
+         CI_Upper = exp(conf.high),
+         term = str_replace(term, "victim_sex", "Victim Sex: ")) %>%
+  select(term, OR,CI_Lower,CI_Upper, p.value) %>% 
   knitr::kable(align = "lrr",
-               col.names = c("Term","Estimate","OR", "95% CI Lower", "95% CI Upper", "P-value"),
+               col.names = c("Term","Estimated adjusted OR", "95% CI Lower", "95% CI Upper", "P-value"),
                digits = 3)
 ```
 
@@ -144,11 +146,11 @@ allcities_or = allcities_logistic %>%
          ci_lower = exp(conf.low),
          ci_upper = exp(conf.high)
          ) %>%
-    select(city_state, term, log_OR = estimate, OR, ci_lower, ci_upper,p.value) %>%
-    filter(term == "victim_sexMale")
+    filter(term == "victim_sexMale") %>%
+    select(city_state, OR, ci_lower, ci_upper,p.value)
     
-    allcities_or %>% knitr::kable(align = "lrr",
-               col.names = c("City, State","Term","Estimate","OR", "95% CI Lower", "95% CI Upper", "P-value"),
+    allcities_or %>% knitr::kable(align = "lrr", caption = "Estimated ORs and CIs for solved homicides of each city comparing male to female victim",
+               col.names = c("City, State","Estimated adjusted OR", "95% CI Lower", "95% CI Upper", "P-value"),
                digits = 3)
 ```
 

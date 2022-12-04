@@ -270,7 +270,7 @@ selected_variables =
 chart.Correlation(selected_variables, method = "pearson")
 ```
 
-* From the plot, among predictors, `bhead` vs `blength` or `gaweeks`, `blength` vs `gaweeks` showed a potential collinearity.
+* From the plot, among predictors, `bhead` vs `blength` or `gaweeks`, `blength` vs `gaweeks` showed a potential collinearity. However, as all predictors are statistical significant with extremely limited p-value in the previous model summary, all the selected continuous variables by BIC will be included.
 
 #### Final selection of continuous and categorical predictors
 ```{r, warning = FALSE, message=FALSE}
@@ -303,6 +303,8 @@ selected_variables %>%
        x = "Fitted Values", y = "Residuals") +
   theme(plot.title = element_text(hjust = 0.5, face = "bold"))
 ```
+
+* We can see the residuals evenly distributed around 0. However, the points do not show a random pattern (points in a cluster around 0), meaning the error variances are not equal, i.e. constant variance assumption in multiple linear regression is violated, hence we should keep the model with intersection.
 
 #### Comparison in terms of the cross-validated prediction error
 ```{r, warning = FALSE, message=FALSE}

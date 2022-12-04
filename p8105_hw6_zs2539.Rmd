@@ -161,7 +161,7 @@ allcities_or %>%
   geom_errorbar(aes(ymin = ci_lower, ymax = ci_upper)) +
   theme(axis.text.x = element_text(angle = 60, hjust = 1)) +
    labs(
-    title = "Estimated ORs and CIs for solved homicides of each city compared with female victim",
+    title = "Estimated ORs and CIs for solved homicides of each city comparing male to female victim",
     x = "City, State",
     y = "Estimated ORs"
   )
@@ -232,7 +232,7 @@ birthweight_raw %>%
   )
 ```
 
-* Based on t-test, the variables with p-value less than 0.01 are to be selected as potential predictors. To be simple, the continuous are to be selected.
+* Based on t-test, the variables with p-value less than 0.01 are to be selected as potential predictors.
 
 #### Based on the correlation plot, and intuitively, `babysex`, `bhead`, `gaweeks`, `blength`, `wtgain`, `ppwt` are to be included as potential predictors; Hence we can build models on every subsets of these variables and choose the optimal one with the lowest BIC.
 ```{r, warning = FALSE, message=FALSE}
@@ -256,31 +256,21 @@ variables = subsets[[index]]
 formula = as.formula(paste("bwt", paste(variables, collapse = " + "), sep = "~"))
 fit_optimal = lm(formula, birthweight_df)
 
-birthweight_df %>% 
-  add_residuals(fit_optimal) %>% 
-  add_predictions(fit_optimal) %>% 
-  ggplot(aes(x = pred, y =resid)) +
-  geom_point() +
-    geom_smooth(method = "lm", se = FALSE) +
-  labs(
-    x = "Fitted values",
-    y = "Residuals",
-    title = "Model residuals vs fitted values"
-  )
+summary(fit_optimal)
 ```
 
 #### Collinearity Check for continuous variables
 ```{r, warning = FALSE, message=FALSE}
 selected_variables =
   birthweight_df %>%
-  select(bhead, blength, gaweeks, wtgain, ppwt, bwt)
+  select(bhead, blength, wtgain, ppwt, gaweeks, bwt)
 
 chart.Correlation(selected_variables, method = "pearson")
 ```
 
 * From the plot, among predictors, `bhead` vs `blength` or `gaweeks`, `blength` vs `gaweeks` showed a potential collinearity.
 
-#### Final selection of continuous predictors, and intuitively, we can also include `babysex`.
+#### Final selection of continuous and categorical predictors
 ```{r, warning = FALSE, message=FALSE}
 selected_variables =
   birthweight_df %>%
